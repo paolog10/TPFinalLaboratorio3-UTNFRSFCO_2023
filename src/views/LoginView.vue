@@ -40,6 +40,9 @@
           this.errorIdUsuario = false;
           //this.idUsuario = '';
 
+          //uso localStorage para guardar un idUsuario
+          localStorage.setItem('idUsuario', this.idUsuario)
+
           //me dirige a la pagina de compra de moneda
           this.$router.push({name: "CompraView"})
         
