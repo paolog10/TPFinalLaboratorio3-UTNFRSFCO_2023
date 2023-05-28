@@ -10,9 +10,10 @@
 
   <hr>
   
+  
   <div>
     <h2>Panel de Criptomonedas</h2>
-    <button @click="mostrarDatosCriptoMonedas()">datos cripto</button>
+    <button @click="obtenerPrecios()" class="botonCerrarSesion">Obtener Precios hoy</button>
     
     <div class="tabla">
       <table>
@@ -24,13 +25,19 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="criptoMoneda in criptoMonedas" :key="criptoMoneda.id">
-            <td>BTC</td>
+          <!--<tr v-for="(icono, index) in iconosCriptomonedas" :key="index">
+            <td><img :src="icono" alt="Logo Criptomoneda" style="height: 40px; width: 40px;"></td>
+            <td>{{ preciosCriptomonedas[index] }}</td>
+          </tr>-->
+          <tr v-for="(criptoMoneda, index) in criptoMonedas" :key="index">
+            <!--<td><img v-for="(icono, id) in iconosCriptomonedas" :key="id" :src="icono"></td>-->
+            <td><img :src="iconosCriptomonedas[index]" alt=""></td> <!--bindeo la imagen en la posicion index-->
             <td>{{ criptoMoneda.ask }}</td>
             <td>{{ criptoMoneda.bid }}</td>
           </tr>
         </tbody>
       </table>
+
     </div>
     
   </div>
@@ -42,17 +49,17 @@
     <form @submit.prevent="validarCompra">
       <div>
         <label>Cantidad:</label>
-        <input type="text" id="cantidad" v-model="cantidadCompraCriptomoneda" required>
+        <input type="text" id="cantidad" v-model.number="cantidadCompraCriptomoneda" required>
       </div>
 
       <div>
         <label>Criptomoneda:</label>
-        <select id="criptomoneda" required>
-          <option value="">Selecciona criptomoneda</option>
-          <option value="Bitcoin">BTC</option>
-          <option value="Ethereum">ETH</option>
-          <option value="Tether">USDT</option>
-          <option value="Dai">DAI</option>
+        <select id="criptomoneda" required v-model="criptomoneda">
+          <option disabled selected>Selecciona criptomoneda</option>
+          <option value="btc">Bitcoin</option>
+          <option value="eth">Ethereum</option>
+          <option value="usdt">USDT</option>
+          <option value="dai">Dai</option>
         </select>
       </div>
 
@@ -65,10 +72,18 @@
   </div>
 
   <hr>
-  TODO:
-  Mostrar las diferentes criptos en un cuadro con sus precios;
-  Ya pude hacer una compra para una criptomoneda, ahora quiero para varias (Acordasrse SIEMPRE habilitar extension CORS);
-  acá va un get que muestre la compra desde la bd
+  
+  <h3>Historial de compras por criptomoneda</h3>
+  <div v-for="(compra, id) in compras" :key="id" class="compra-box">
+    <h3>Detalles de la compra:</h3>
+    <p><strong>Criptomoneda:</strong> {{ compra.crypto_code }}</p>
+    <p><strong>Cantidad:</strong> {{ compra.crypto_amount }}</p>
+    <p><strong>Precio $ARS:</strong> {{ compra.money }}</p>
+    <p><strong>Fecha y hora:</strong> {{ compra.datetime }}</p>
+  </div>
+  <button @click="obtenerCompras">Mirá el historial</button>
+
+  <hr>
 
 </template>
 
@@ -83,10 +98,26 @@
       return {
         clienteId: localStorage.getItem('idUsuario'), //inicializo el idUsuario del localStorage
         criptoMonedas: [],
+        iconosCriptomonedas: [
+          "https://argenbtc.com/img/iconos/f_bitcoin.svg",
+          "https://argenbtc.com/img/iconos/f_ethereum.svg",
+          "https://argenbtc.com/img/iconos/f_tether.svg",
+          "https://argenbtc.com/img/iconos/f_dai.svg",
+        ],
+        endpointsPrecios: [
+          "/btc/ars/1", 
+          "/eth/ars/1",
+          "/usdt/ars/1", 
+          "/dai/ars/1"
+        ],
+        criptomoneda: "",
         cantidadCompraCriptomoneda: '',
         compraExitosa: false,
         numeroValido: false,
         cantidadCompraCriptomonedaDecimal: null,
+        compras: [],
+        historial: [],
+        preciosCriptomonedas: [],
       };
     },
     
@@ -94,8 +125,19 @@
       darMensajeBienvenida(){
         //console.log(this.clienteId)
         return `Bienvenido ${this.clienteId}!!!`
-      }
+      },
+
     },
+
+    //Si descomento esto me tira una tabla con las criptos y sus precios
+    /*
+    mounted() {
+      this.obtenerPrecios()
+        .then(precios => {
+          // Asigna los precios obtenidos a una propiedad en los datos de Vue
+          this.preciosCriptomonedas = precios;
+        });
+    },*/
     
     methods: {
       cerrarSesion() {
@@ -103,24 +145,27 @@
         alert('Cerrando sesión...');
       },
 
-      async mostrarDatosCriptoMonedas(){
+      async obtenerPrecios() {
         try {
-          let response = await criptoYaConnectionService.get(`/btc/ars/0.1`); //endpoint argenbtc/{coin}/{fiat} /dai/ars/0.1 - /eth/ars/0.1 - /usdt/ars/0.1
-          //console.log(response);
-          console.log(response.data.argenbtc)
-          this.criptoMonedas.push(response.data.argenbtc) 
-          //let criptoMonedas = await response.json();
-          //console.log(criptoMonedas);
-          //this.criptoMonedas = response.data;
+          const precios = [];
+
+          for (const endpoint of this.endpointsPrecios) {
+            let response = await criptoYaConnectionService.get(endpoint);
+            //precios.push(response.data.ask);
+            this.criptoMonedas.push(response.data) 
+          }
+
+          return precios;
         } catch (error) {
-          console.error('Error al obtener los datos de la API:', error);
+          console.error('Error al obtener los precios de las criptomonedas:', error);
+          return [];
         }
       },
 
       validarCompra(){
         if (/^\d*\.?\d+$/.test(this.cantidadCompraCriptomoneda)) {
           // Convertir el número a decimal si passa el test de convertir string en numero
-          this.cantidadCompraCriptomonedaDecimal = parseFloat(this.cantidadCompraCriptomoneda);
+          this.cantidadCompraCriptomonedaDecimal = parseFloat(this.cantidadCompraCriptomoneda); //esto lo podemos hacer en un computed property
           this.numeroValido = false;
           
           //console.log(this.cantidadCompraCriptomonedaDecimal)
@@ -139,9 +184,9 @@
         let compraCriptomoneda = {
           user_id: this.clienteId,
           action: "purchase",
-          crypto_code: "btc",
+          crypto_code: this.criptomoneda,
           crypto_amount: this.cantidadCompraCriptomonedaDecimal,
-          money: this.criptoMonedas[0].ask, //criptoMonedas[0].ask => posicion 0 es btc en el array y ask es el atributo compra qu viene de traer datos
+          money: this.criptoMonedas[3].ask, //PROBLEMAS ACÁ, como hacer para comprar al precio correspondiente a la criptomoneda
           datetime: new Date().toISOString() //formato iso
         }
 
@@ -151,9 +196,20 @@
           console.log(response)
         } catch (error) {
           console.error('Error al obtener los datos de la API:', error);
+        }        
+      },
+
+      async obtenerCompras() {
+        try {
+          // Realiza GET para obtener la compra del cliente
+          const response = await utnConnectionService.get(`transactions?q={"user_id":"${this.clienteId}"}`); //paolog1982
+          this.compras = response.data;
+          console.log(this.compras.length);
+          console.log(this.compras);
+        } catch (error) {
+          console.error('Error al obtener la compra:', error);
         }
-        
-      }
+      },
 
     }
       
@@ -279,4 +335,17 @@ p {
 .error {
   color: red;
 }
+
+.imagen-miniatura {
+  max-width: 50px;
+  max-height: 50px;
+}
+
+.compra-box {
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
 </style>
